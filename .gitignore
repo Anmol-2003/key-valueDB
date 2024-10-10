@@ -1,0 +1,6 @@
+garbage
+.vscode
+snapshots
+out.exe
+
+*.txt
