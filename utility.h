@@ -1,5 +1,4 @@
 #include<iostream>
-#include<windows.h>
 #include<string>
 #include<vector>
 #include<fstream>
@@ -7,41 +6,22 @@
 #include<map>
 #include<algorithm>
 #include<sstream>
+#include<filesystem>
 
 using namespace std; 
 
-// Utility function used in get_all_files_names_within_folder();
-wstring string_to_wstring(const std::string &str)
-{
-    int size_needed = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), NULL, 0);
-    wstring wstr(size_needed, 0);
-    MultiByteToWideChar(CP_UTF8, 0, str.c_str(), (int)str.size(), &wstr[0], size_needed);
-    return wstr;
-}
+namespace fs = std::filesystem;
 
-using namespace std;
-
-// Function analogous to os.listdir() in python;
+// Function analogous to os.listdir() in Python;
 vector<string> get_all_files_names_within_folder(const string &folder)
 {
     vector<string> names;
-    wstring search_path = string_to_wstring(folder + "/*.*");
-    WIN32_FIND_DATAW fd; // Use the wide version
-    HANDLE hFind = FindFirstFileW(search_path.c_str(), &fd);
-
-    if (hFind != INVALID_HANDLE_VALUE)
+    for (const auto &entry : fs::directory_iterator(folder)) 
     {
-        do
+        if (fs::is_regular_file(entry.path())) 
         {
-
-            if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
-            {
-                wstring file_name_w = fd.cFileName;
-                string file_name(file_name_w.begin(), file_name_w.end());
-                names.push_back(file_name);
-            }
-        } while (FindNextFileW(hFind, &fd));
-        FindClose(hFind);
+            names.push_back(entry.path().filename().string());  
+        }
     }
 
     return names;
@@ -64,33 +44,39 @@ void insertToDisk(vector<pair<long, int>> data){
 }
 
 // Searching for a key
-int searchData(vector<string>& filenames, long& k)
-{
-    sort(filenames.rbegin(), filenames.rend());
+int searchData(vector<string>& filenames, long& key) {
     const string dir = "./snapshots/";
-    bool found = false; 
-    int i = 0; 
-    while(!found){
-        ifstream file(dir + filenames[i]); 
-        if(file.is_open()){
-            string line; 
-            while(getline(file, line)){
-                stringstream ss(line); 
-                long key; 
-                int value; 
-                char delim; 
-                if(ss >> key >> delim >> value){
-                    if(key == k){
-                        // cout << "Data: " << value << endl;
-                        return value; 
+    bool found = false;
+    int result = -1;
+
+    // Iterate through filenames in reverse order (if that's required, otherwise remove rbegin/rend)
+    for (const string& filename : filenames) {
+        ifstream file(dir + filename); 
+        if (file.is_open()) {
+            string line;
+            while (getline(file, line)) {
+                stringstream ss(line);
+                long fileKey;
+                int value;
+                char delim;
+                if (ss >> fileKey >> delim >> value) {
+                    if (fileKey == key) {
+                        result = value;
+                        found = true;
+                        break;  // Break out of the loop once key is found
                     }
                 }
             }
-            file.close();
+            file.close(); // Close the file after reading
+        }
+        if (found) {
+            break; // Exit the outer loop if the key was found
         }
     }
-    return -1; 
+
+    return result;  // Return -1 if key wasn't found, or the corresponding value if found
 }
+ 
 
 // Compaction - Performs compaction of the SSTables.
 void compaction(vector<string> filenames)

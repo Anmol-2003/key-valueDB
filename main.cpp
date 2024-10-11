@@ -9,7 +9,7 @@
 
 using namespace std;
 
-const int MAX_SIZE = 10; 
+const int MAX_SIZE = 4; 
 mutex memtableAndSnapshotSave;
 mutex compactionAndSnapshotSave;
 mutex searchLock;
@@ -20,7 +20,8 @@ mutex searchLock;
 // write - insert, delete, modify
 // read - search in database
 
-atomic<int> process(0);
+// Below atomic variable can be used to make functions atomic
+// atomic<int> process(0);
 
 // long logging(WriteAheadLog& wal, int data, string operation){
 //     if(process.load() == 2){
@@ -29,37 +30,48 @@ atomic<int> process(0);
 // }
 
 // write to memtable thread
-void writeToMemTable(string operation, int data, SkipList& sl, WriteAheadLog& wal){
+void writeToMemtableInsert(int data, SkipList& sl, WriteAheadLog& wal){
+    
     lock_guard<mutex> guard(memtableAndSnapshotSave); // lightweight RAII lock, automatically acquires the lock and unlocks once out of scope.
-    process.store(1);
-    long key = wal.writeToLog(data, operation);
+    
+    long key = wal.writeToLogInsert(data, "INSERT");
     sl.insert(key, data); 
     return; 
 }
+void writeToMemtableDelete(long key, SkipList& sl, WriteAheadLog& wal){
+    lock_guard<mutex> guard(memtableAndSnapshotSave); 
 
+    wal.writeToLogDelete(key, "DELETE");
+    sl.remove(key); 
+    return; 
+}
+void writeToMemtableUpdate(long key, int data, SkipList& sl, WriteAheadLog& wal)
+{
+    lock_guard<mutex> guard(memtableAndSnapshotSave); 
+    wal.writeToLogUpdate(key, data, "UPDATE"); 
+    sl.update(key, data); 
+    return;
+}
 // snapshotting thread
 void saveSnapshotToDisk(SkipList& sl){
     // check if the size of the memTable is over the defined MAX_SIZE;
     if(sl.listSize() <= MAX_SIZE){
-        cout << "No need to save Snapshot"; 
+        cout << "No need to save Snapshot\n"; 
         return; 
     }
     // if its over, acquire the lock on memTable and perform snapshotting.
     // This acquires the lock on all teh mutexes simultaneously.
-    lock(memtableAndSnapshotSave, compactionAndSnapshotSave, searchData);
-    // Below here is for automatic unlocking of the locks after process goeas OOS.
-    lock_guard<mutex> guard1(memtableAndSnapshotSave);
-    lock_guard<mutex> guard2(compactionAndSnapshotSave);
-    lock_guard<mutex> guard3(searchLock);
-    
+    scoped_lock guard(memtableAndSnapshotSave, compactionAndSnapshotSave, searchLock);
+    cout << "Snapshotting the data\n";
     // The below way is bad. The order in which the locks are acquired matters and may cause deadlocks
     // lock_guard<mutex> guard1(memtableAndSnapshotSave); 
     // lock_guard<mutex> guard2(compactionAndSnapshotSave);
     // lock_guard<mutex> guard3(searchData);
-    process.store(2); 
     vector<pair<long, int>> data; 
-    data = sl.data(); 
+    sl.display(); 
+    data = sl.data();
     insertToDisk(data); 
+    sl.clear();
     return; 
 }
 
@@ -105,24 +117,45 @@ int main(){
             cout << "Input data : "; 
             cin >> data; 
             cout << endl;
+
             // Writing to log is independent of the mutex lock - only one process access this.
-            thread write_to_memtable(writeToMemTable, "INSERT", data, ref(skiplist), ref(wal)); 
+            thread write_to_memtable(writeToMemtableInsert, data, ref(skiplist), ref(wal)); 
             thread save_snapshot(saveSnapshotToDisk, ref(skiplist));
 
+            // detach - async thread. The main thread doesnt wait for these to finish and moves on. Faster
+            // join - execution of the thread takes place on different core and the main thread waits for it to finish.
             write_to_memtable.join();
-            save_snapshot.join(); 
+            // calling snapshot fn async
+            save_snapshot.detach(); 
 
         } else if(option == 2){
-            cout << "Deleting data" << endl;
+            cout << "Currently implementing Delete method"; 
+            // long key; 
+            // cout << "KEY : "; 
+            // cin >> key; 
+
+            // thread write_to_memtable(writeToMemtableDelete, key, ref(skiplist), ref(wal));
+            // write_to_memtable.join();
+
+        } else if(option == 4){
+            long key; 
+            cout << "KEY TO SEARCH : "; 
+            cin >> key;  
+            thread searching(searchDataInDB, ref(skiplist), key);
+            searching.join();
 
         } else if(option == 3){
-            cout << "IDK" << endl;
+            long key; 
+            int data; 
+            cout << "Enter KEY and DATA : "; 
+            cin >> key >> data; 
 
-        } else{
+            thread updating(writeToMemtableUpdate, key, data, ref(skiplist), ref(wal));
+            updating.join(); 
+
+        }else{
             cout << "Invalid selection, please select from the above options...." << endl; 
         }
     }
     return 0; 
 }
-
-

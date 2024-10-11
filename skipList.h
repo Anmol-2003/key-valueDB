@@ -29,6 +29,9 @@ class SkipList{
     int search(long key); 
     vector<pair<long, int>> data();
     int listSize();
+    void clear(); 
+    void display(); 
+    void update(long key, int value);
 }; 
 
 // constructor func
@@ -69,11 +72,11 @@ long SkipList::insert(long key, int data){
             newNode->next[i] = prev[i]->next[i]; 
             prev[i]->next[i] = newNode; 
         }
-        cout << "Successful insertion of node" << endl; 
+        // cout << "Successful insertion of node" << endl; 
         return key;
     }
    
-    cout << "Node already present" << endl; 
+    // cout << "Node already present" << endl; 
     return 0; 
 }
 
@@ -103,14 +106,17 @@ void SkipList::remove(long key){
         while (level > 0 && head->next[level] == nullptr){
             level --; 
         }
+    }else{
+        cout << "Data not in database\n";
     }
+    return; 
 }
 
 // SEARCH OPERATION
 int SkipList::search(long key){
     Node* curr = head;                  
     for(int i = level; i >= 0; i--){
-        while(curr->next[i] && curr->next[i]->data->key < key){
+        while(curr->next[i] != nullptr && curr->next[i]->data->key < key){
             curr = curr->next[i];
         }
     }                                         
@@ -141,4 +147,42 @@ vector<pair<long, int>> SkipList::data()
     }    
     return t; 
 }
+// Empty the memTable after saving the snapshot to disk
+void SkipList::clear(){
+    // Delete each node to prevent memory leak
+    Node* curr = head->next[0]; 
+    while(curr != nullptr){
+        Node* temp = curr; 
+        curr = curr->next[0]; 
+        delete temp; 
+    }
+    delete head; 
+    head = new Node(0, 0, maxNumLevels); 
+    level = 0;
+    return; 
+}
 
+void SkipList::display(){
+    Node* curr = head; 
+    while(curr->next[0] != nullptr){
+        curr = curr->next[0]; 
+        cout << curr->data->key << " : " << curr->data->value << "  ";
+    }
+    cout << endl;
+    return; 
+}
+void SkipList::update(long key, int value){
+    Node* curr = head; 
+    for(int i=level; i >=0; i--){
+        while(curr->next[i] != nullptr && curr->next[i]->data->key < key){
+            curr = curr->next[i];
+        }
+    }
+    curr = curr->next[0]; 
+    if(curr != nullptr && curr->data->key == key){
+        curr->data->value = value;
+    }else{
+        cout << "value not present";
+    }
+    return; 
+}
