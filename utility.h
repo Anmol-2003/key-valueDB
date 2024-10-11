@@ -61,7 +61,7 @@ int searchData(vector<string>& filenames, long& key) {
                 int value;
                 char delim;
                 if (ss >> fileKey >> delim >> value) {
-                    if (fileKey == key) {
+                    if (fileKey == key && value != -1e9) {
                         result = value;
                         found = true;
                         break;  // Break out of the loop once key is found
@@ -85,7 +85,7 @@ void compaction(vector<string> filenames)
     sort(filenames.begin(), filenames.end());
     vector<pair<long, pair<int, int>>> data;
 
-    for (string name : filenames)
+    for (const string& name : filenames)
     {
 
         vector<pair<long, pair<int, int>>> temp;
@@ -109,11 +109,9 @@ void compaction(vector<string> filenames)
         if (data.empty())
         {
             data = temp;
-        }else{
+        }
+        else{
             vector<pair<long, pair<int, int>>> d; 
-            sort(data.begin(), data.end());       
-            sort(temp.begin(), temp.end());   
-
             int n = data.size();
             int m = temp.size();
             int i = 0, j = 0;
@@ -122,23 +120,23 @@ void compaction(vector<string> filenames)
             {
                 if (data[i].first < temp[j].first)
                 {
-                    d.push_back(data[i]); 
+                    if(data[i].second.second != -1e9) d.push_back(data[i]); 
                     i++;
                 }
                 else if (data[i].first > temp[j].first)
                 {
-                    d.push_back(temp[j]); 
+                    if(temp[j].second.second != -1e9) d.push_back(temp[j]); 
                     j++;
                 }
                 else
                 {
                     if (data[i].second.first > temp[j].second.first)
                     {
-                        d.push_back(data[i]); 
+                        if(data[i].second.second != -1e9) d.push_back(data[i]); 
                     }
                     else
                     {
-                        d.push_back(temp[j]); 
+                        if(temp[j].second.second != -1e9) d.push_back(temp[j]); 
                     }
                     i++;
                     j++;
@@ -146,12 +144,12 @@ void compaction(vector<string> filenames)
             }
             while (i < n)
             {
-                d.push_back(data[i]);
+                if(data[i].second.second != -1e9) d.push_back(data[i]);
                 i++;
             }
             while (j < m)
             {
-                d.push_back(temp[j]);
+                if(temp[j].second.second != -1e9) d.push_back(temp[j]);
                 j++;
             }
             data = d;

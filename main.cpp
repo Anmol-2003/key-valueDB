@@ -21,6 +21,8 @@ mutex searchLock;
 // write - insert, delete, modify
 // read - search in database
 
+// -1e9 - tombestone value
+
 // Below atomic variable can be used to make functions atomic
 // atomic<int> process(0);
 
@@ -39,21 +41,45 @@ void writeToMemtableInsert(int data, SkipList& sl, WriteAheadLog& wal){
     sl.insert(key, data); 
     return; 
 }
+
+// DELETE the value
 void writeToMemtableDelete(long key, SkipList& sl, WriteAheadLog& wal){
     lock_guard<mutex> guard(writeAndSnapshotSave); 
 
     wal.writeToLogDelete(key, "DELETE");
-    sl.remove(key); 
+    if(sl.update(key, -1e9)){
+        cout << "Data deleted\n"; 
+        return; 
+    }
+    vector<string> filenames = get_all_files_names_within_folder("./snapshots/"); 
+    if(searchData(filenames, key) == -1){
+        cout << "Data not present in DB" << endl; 
+        return ; 
+    }
+    sl.insert(key, -1e9);
+    cout << "Data deleted from DB\n"; 
     return; 
 }
+
+// UPDATE the value
 void writeToMemtableUpdate(long key, int data, SkipList& sl, WriteAheadLog& wal)
 {
-    lock_guard<mutex> guard(writeAndSnapshotSave); 
+    scoped_lock guard(writeAndSnapshotSave, searchLock); 
     wal.writeToLogUpdate(key, data, "UPDATE"); 
-    sl.update(key, data); 
+    if(sl.update(key, data)){
+        return; 
+    } 
+    vector<string> filenames = get_all_files_names_within_folder("./snapshots/"); 
+    if(searchData(filenames, key) == -1){
+        cout << "Data not present in DB" << endl; 
+        return ; 
+    }
+    sl.insert(key, data);
+    cout << "Data updated\n"; 
     return;
 }
-// snapshotting thread
+
+// SAVE MEMTABLE TO DISK 
 void saveSnapshotToDisk(SkipList& sl){
     // check if the size of the memTable is over the defined MAX_SIZE;
     if(sl.listSize() <= MAX_SIZE){
@@ -77,7 +103,7 @@ void saveSnapshotToDisk(SkipList& sl){
     sl.clear();
     return; 
 }
-// compaction thread
+// COMPACTION 
 void compactionOfSSTables(vector<string>& filenames){
     if(filenames.size() <= 2) return;
     // acquire the lock
@@ -88,6 +114,7 @@ void compactionOfSSTables(vector<string>& filenames){
     return; 
 }
 
+// SEARCH 
 void searchDataInDB(SkipList& sl, long key){
     lock_guard<mutex> search(searchLock); 
 
@@ -95,19 +122,15 @@ void searchDataInDB(SkipList& sl, long key){
     if(value == -1){
         vector<string> filenames = get_all_files_names_within_folder("./snapshots");
         value = searchData(filenames, key);
-        if(value == -1){
-            cout << "Data not present" << endl;
-        }else{
-            cout << "Data : " << value << endl;
-            return; 
-        }
     }
+
     if(value == -1) cout << "Data not present\n"; 
+    else cout << "Data : " << value << endl; 
     return;
 }
 
 int main(){
-    // initializing database components 
+    // Initialize database components 
     WriteAheadLog wal;
     SkipList skiplist;  
 
@@ -145,15 +168,13 @@ int main(){
             // join - execution of the thread takes place on different core and the main thread waits for it to finish.
             // calling snapshot fn async
             // write_to_memtable.join(); 
-            
-        } else if(option == 2){
-            cout << "Currently implementing Delete method"; 
-            // long key; 
-            // cout << "KEY : "; 
-            // cin >> key; 
 
-            // thread write_to_memtable(writeToMemtableDelete, key, ref(skiplist), ref(wal));
-            // write_to_memtable.join();
+        } else if(option == 2){
+            // Tombstone deletion (FADE - FAst DEletes which is delete aware compaction)
+            long key; 
+            cout << "KEY : "; 
+            cin >> key; 
+            writeToMemtableDelete(key, skiplist, wal);   
 
         } else if(option == 4){
             long key; 

@@ -31,7 +31,7 @@ class SkipList{
     int listSize();
     void clear(); 
     void display(); 
-    void update(long key, int value);
+    int update(long key, int value);
 }; 
 
 // constructor func
@@ -120,8 +120,7 @@ int SkipList::search(long key){
             curr = curr->next[i];
         }
     }                                         
-    if( curr->next[0] != nullptr && curr->next[0]->data->key == key){
-        // cout << "Data: " << curr->next[0]->data->value << endl; 
+    if( curr->next[0] != nullptr && curr->next[0]->data->key == key && curr->next[0]->data->value != -1e9){
         return curr->next[0]->data->value;
     }
     return -1;     
@@ -172,7 +171,7 @@ void SkipList::display(){
     cout << endl;
     return; 
 }
-void SkipList::update(long key, int value){
+int SkipList::update(long key, int value){
     Node* curr = head; 
     for(int i=level; i >=0; i--){
         while(curr->next[i] != nullptr && curr->next[i]->data->key < key){
@@ -183,7 +182,7 @@ void SkipList::update(long key, int value){
     if(curr != nullptr && curr->data->key == key){
         curr->data->value = value;
     }else{
-        cout << "value not present";
+        return 0; 
     }
-    return; 
+    return 1; 
 }
