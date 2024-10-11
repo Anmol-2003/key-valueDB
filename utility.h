@@ -64,18 +64,18 @@ int searchData(vector<string>& filenames, long& key) {
                     if (fileKey == key && value != -1e9) {
                         result = value;
                         found = true;
-                        break;  // Break out of the loop once key is found
+                        break;  
                     }
                 }
             }
-            file.close(); // Close the file after reading
+            file.close(); 
         }
         if (found) {
-            break; // Exit the outer loop if the key was found
+            break; 
         }
     }
 
-    return result;  // Return -1 if key wasn't found, or the corresponding value if found
+    return result;  
 }
  
 
