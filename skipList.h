@@ -164,6 +164,7 @@ void SkipList::clear(){
 
 void SkipList::display(){
     Node* curr = head; 
+    cout << endl;
     while(curr->next[0] != nullptr){
         curr = curr->next[0]; 
         cout << curr->data->key << " : " << curr->data->value << "  ";

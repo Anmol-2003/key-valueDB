@@ -3,6 +3,7 @@
 #include<vector>
 #include<fstream>
 #include<ctime>
+#include<cstdio> // remove() for files
 #include<map>
 #include<algorithm>
 #include<sstream>
@@ -161,5 +162,11 @@ void compaction(vector<string> filenames)
         d.push_back({ele.first, ele.second.second});
     }
     insertToDisk(d);
+    // removing the previous files.
+    for (const string& name : filenames)
+    {
+        string filepath = "./snapshots/" + name;
+        remove(filepath.c_str());
+    }
     return;    
 }

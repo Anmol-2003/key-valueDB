@@ -90,8 +90,6 @@ void WriteAheadLog::readFromLog() {
 void WriteAheadLog::writeToLogUpdate(long key, int data, const string operation){
     logFile.open(fileName, ios::app);
     time_t timestamp; 
-    long key = KEY++;
-
     if(logFile.is_open()){
         logFile << to_string(time(&timestamp)) + " -- " + operation +  " : " + to_string(key) + " : " + to_string(data) + "\n"; 
     }
